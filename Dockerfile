@@ -1,4 +1,5 @@
-ARG IMAGE=nginx:1.31.5-alpine
+ARG IMAGE=nginx
+ARG TAG=1.31.5-alpine
 ARG REGISTRY=docker.io/library
 FROM $REGISTRY/$IMAGE
 
