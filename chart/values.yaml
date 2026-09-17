@@ -1,7 +1,7 @@
 template:
-  app: oci-modified
-  image: ghcr.io/joeckr/oci-modified
-  name: oci-modified
+  app: oci-custom
+  image: ghcr.io/joeckr/oci-custom
+  name: oci-custom
   podSecurityContext:
     runAsNonRoot: true
     seccompProfile:
