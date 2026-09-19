@@ -21,7 +21,7 @@ This skeleton provides an out-of-the-box foundation to:
 - **Helm Chart Included**: Comes with a ready-to-use Helm chart (`chart/`) for templated, reproducible deployments.
 - **Matrix CI Pipelines**: Uses `joeckr/ci-templates` workflows (`build-oci-custom.yml`, `push-helm-ghcr.yml`, `semantic.yml`) to automatically build, scan, tag, and push images and Helm charts.
 - **Version Matrix Configuration**: Control target image versions, base images, and base tags via `versions.json`.
-- **Local Testing**: Includes `docker-compose.yml` for local container verification.
+- **Local Testing**: Includes `compose.yml` for local container verification.
 - **Code Quality & Linting**: Pre-configured with `hk` hooks for pre-commit checks (`actionlint`, `zizmor`, `yamllint`, `helm-lint`).
 
 ## Repository Structure
@@ -29,7 +29,7 @@ This skeleton provides an out-of-the-box foundation to:
 - `Dockerfile`: Template Dockerfile demonstrating secure patterns (non-root user, group 0 permissions) for custom builds.
 - `chart/`: Accompanying Helm chart for deploying the application to Kubernetes or OpenShift.
 - `versions.json`: Build matrix defining target image version, base image, base tag, and release flags.
-- `docker-compose.yml`: For local testing and development.
+- `compose.yml`: For local testing and development.
 - `.github/workflows/`:
   - `release.yml`: Production release pipeline (semantic versioning, custom OCI build & push, Helm chart push to GHCR).
   - `test_release.yml`: PR validation pipeline running dry-run builds and test releases.
