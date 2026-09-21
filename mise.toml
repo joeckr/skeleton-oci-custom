@@ -21,7 +21,7 @@ hk install --mise
 [tasks.build]
 description = "Build the application"
 run = """
-podman buildx build --platform linux/amd64 -t ghcr.io/joeckr/oci-modified:test . --load
+podman buildx build --platform linux/amd64 -t ghcr.io/joeckr/oci-custom:test . --load
 """
 
 [tasks.compose]
@@ -77,6 +77,19 @@ run = """
 helm template test chart/ > rendered.yaml
 """
 
+[tasks.helm-install]
+description = "Install Helm chart"
+depends = ["helm-dep"]
+run = """
+helm install test chart/
+"""
+
+[tasks.helm-uninstall]
+description = "Uninstall Helm chart"
+run = """
+helm uninstall test
+"""
+
 [tasks.helm-dep]
 description = "Build Helm chart dependencies"
 run = """
@@ -93,5 +106,5 @@ trivy fs .
 description = "Run Trivy on the Podman image"
 depends = ["build"]
 run = """
-trivy image ghcr.io/joeckr/oci-modified:test
+trivy image ghcr.io/joeckr/oci-custom:test
 """
