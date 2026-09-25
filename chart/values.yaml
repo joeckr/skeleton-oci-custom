@@ -43,6 +43,7 @@ service:
   port: 8080
 
 ingress:
+  enabled: true
   name: template-ingress
   host: "test.joeckr.dev"  # Put your own domain here
   route: "false"
