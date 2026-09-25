@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: {{ .Values.service.name }}
   labels:
-    app: {{ .Values.template.app }}
+    app: {{ .Values.template.name }}
 spec:
   type: NodePort
   ports:
@@ -12,4 +12,4 @@ spec:
       protocol: TCP
       name: {{ .Values.service.name }}
   selector:
-    app: {{ .Values.template.app }}
+    app: {{ .Values.template.name }}
