@@ -1,5 +1,4 @@
 template:
-  app: oci-custom
   image: ghcr.io/joeckr/oci-custom
   name: oci-custom
   podSecurityContext:
