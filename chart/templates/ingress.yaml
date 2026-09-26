@@ -5,7 +5,7 @@ kind: Ingress
 metadata:
   name: {{ .Values.ingress.name }}
   labels:
-    app: {{ .Values.template.name }}
+    app: {{ .Values.app.name }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
