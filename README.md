@@ -1,25 +1,25 @@
 # Skeleton OCI Custom
 
-This repository serves as a starter template for building, packaging, and deploying your own custom container images. It provides secure-by-default container configurations compliant with **OpenShift** (arbitrary UID support) and **Talos Linux**, automated multi-architecture CI/CD workflows, and an accompanying production-ready **Helm chart**.
+This repository serves as a starter template for building, packaging, and deploying rootless, hardened custom container images. It provides secure-by-default container configurations compliant with modern Kubernetes security standards (restricted Pod Security Standards and arbitrary non-root UID support), automated multi-architecture CI/CD workflows, and an accompanying production-ready **Helm chart**.
 
 ## Purpose
 
-Building custom container images for modern, security-hardened Kubernetes environments like OpenShift (enforcing strict Security Context Constraints) and Talos Linux requires adhering to strict security defaults from the start. Images must run without root privileges, avoid privilege escalation, and accommodate arbitrary user IDs.
+Building custom container images for modern, security-hardened Kubernetes environments (enforcing restricted Pod Security Standards and rootless runtimes) requires adhering to strict security defaults from the start. Images must run without root privileges, avoid privilege escalation, and accommodate arbitrary user IDs.
 
 This skeleton provides an out-of-the-box foundation to:
 - **Build Custom Images**: Jumpstart development of your own containerized services and applications.
-- **Enterprise Security Defaults**: Run as non-root (`USER 1031`), support OpenShift arbitrary UIDs (`chgrp -R 0` and `chmod -R g+rwX`), and satisfy restricted pod security standards.
+- **Enterprise Security Defaults**: Run as non-root (`USER 1031`), support arbitrary dynamic UIDs (`chgrp -R 0` and `chmod -R g+rwX`), and satisfy restricted pod security standards.
 - **Automated CI/CD**: Build multi-platform images (amd64, arm64), run vulnerability scans (Trivy), generate Software Bills of Materials (SBOM), and publish to GitHub Container Registry (GHCR) using reusable CI templates.
-- **Deploy with Helm**: Deploy seamlessly with a ready-to-use Helm chart (`chart/`) supporting Kubernetes Deployments, Services, Ingress, OpenShift Routes, Persistent Volume Claims (PVC), and ConfigMaps.
+- **Deploy with Helm**: Deploy seamlessly with a ready-to-use Helm chart (`chart/`) supporting Kubernetes Deployments, Services, Ingress, Persistent Volume Claims (PVC), and ConfigMaps.
 - **Local Development**: Rapidly iterate and verify builds locally using Podman Compose.
 
 ## Features
 
 - **Rootless Image Builds**: Engineered to build cleanly in unprivileged, rootless container builders (such as rootless Podman, Buildah, or unprivileged CI runners) without requiring host root or privileged daemon sockets.
 - **Custom Image Starter**: Boilerplate `Dockerfile` set up to build custom application images with configurable base images and tags.
-- **OpenShift Compliance**: Configured to run without root privileges and handle arbitrary user IDs gracefully.
-- **Talos Linux Compatibility**: Follows security best practices suitable for immutable, secure-by-default Kubernetes operating systems.
-- **Dual Ingress & Route Support**: Helm chart cleanly toggles between standard Kubernetes `Ingress` (`networking.k8s.io/v1`) for Talos and OpenShift `Route` (`route.openshift.io/v1`).
+- **Rootless & Hardened Image Design**: Configured to run without root privileges and handle arbitrary user IDs gracefully.
+- **Hardened Kubernetes Compatibility**: Follows security best practices aligned with Kubernetes Pod Security Standards (`restricted`).
+- **Standard Ingress Support**: Helm chart configures standard Kubernetes `Ingress` (`networking.k8s.io/v1`).
 - **Helm Chart Included**: Comes with a ready-to-use Helm chart (`chart/`) for templated, reproducible deployments.
 - **Matrix CI Pipelines**: Uses `joeckr/ci-templates` workflows (`build-oci-custom.yml`, `push-helm-ghcr.yml`, `semantic.yml`) to automatically build, scan, tag, and push images and Helm charts.
 - **Version Matrix Configuration**: Control target image versions, base images, and base tags via `versions.json`.
@@ -29,7 +29,7 @@ This skeleton provides an out-of-the-box foundation to:
 ## Repository Structure
 
 - `Dockerfile`: Template Dockerfile demonstrating secure patterns (non-root user, group 0 permissions) for custom builds.
-- `chart/`: Accompanying Helm chart for deploying the application to OpenShift or Talos Linux.
+- `chart/`: Accompanying Helm chart for deploying the application to Kubernetes.
 - `versions.json`: Build matrix defining target image version, base image, base tag, and release flags.
 - `compose.yml`: For local testing and development of the custom image.
 - `mise.toml`: Task runner configuration automating build, compose, play, lint, and cluster deployment workflows.
@@ -40,29 +40,21 @@ This skeleton provides an out-of-the-box foundation to:
   - `security.yml`: Code and dependency security scanning.
 - `hk.pkl`: Pre-commit hook configuration managed with `hk`.
 
-## Security & Compliance Architecture
+## Security & Hardened Image Architecture
 
-Both OpenShift and Talos Linux prioritize workload security and least privilege, but they enforce and evaluate constraints through different mechanisms. This repository is architected to satisfy both environments without code changes.
+Modern hardened Kubernetes environments prioritize workload security and least privilege by enforcing strict runtime constraints. This repository is architected to produce rootless, hardened container images that run out-of-the-box under restricted security standards without requiring root privileges.
 
-### OpenShift Compliance (`restricted-v2` SCC)
+### Hardened Container Standards (Kubernetes PSS `restricted`)
 
-OpenShift uses **Security Context Constraints (SCC)** to control pod permissions. Under the default `restricted-v2` SCC:
-- **Arbitrary Dynamic UIDs**: OpenShift assigns a random UID from a dedicated per-namespace range (e.g., `1000670000`). Containers cannot assume a fixed UID like `1000`.
-- **Root Group (GID 0)**: Files and directories required at runtime must be owned by group 0 (`chgrp -R 0`) with group read/write permissions (`chmod -R g+rwX`) so the dynamically assigned UID can access them.
-- **Dropped Capabilities**: Drops standard root capabilities (`CHOWN`, `DAC_OVERRIDE`, `FOWNER`, `SETUID`, `SETGID`, `SYS_CHROOT`, etc.) and permits only unprivileged operations (and `NET_BIND_SERVICE` when needed).
-- **Unprivileged Ports**: Containers must listen on non-privileged ports (> 1024), such as port `8080`.
-- **Routing**: OpenShift natively supports `route.openshift.io/v1` Routes for external ingress traffic.
-
-### Talos Linux Compliance (Kubernetes PSS `restricted`)
-
-Talos Linux is an immutable, minimal, secure-by-default Kubernetes operating system with no SSH, no interactive shell, and an immutable root filesystem. In Talos clusters:
-- **Pod Security Standards (PSS)**: Workload namespaces enforce the Kubernetes **Pod Security Admission (PSA)** `restricted` profile.
-- **Must Run As Non-Root**: The pod specification must set `securityContext.runAsNonRoot: true`. Containers cannot execute as UID 0.
-- **Drop All Capabilities**: The container specification must explicitly drop all Linux capabilities (`capabilities: drop: ["ALL"]`).
-- **Disallow Privilege Escalation**: Must set `securityContext.allowPrivilegeEscalation: false` to prevent child processes from acquiring more privileges than the parent.
-- **Seccomp Profile**: Pods must enforce `seccompProfile: { type: RuntimeDefault }`.
-- **Credential Protection**: Best practice sets `automountServiceAccountToken: false` to avoid leaking Kubernetes API tokens to application containers unless explicitly needed.
-- **Standard Ingress & Storage**: Talos relies on standard Kubernetes `networking.k8s.io/v1` `Ingress` (e.g., via Cilium, Traefik, or Ingress-NGINX) and CSI storage providers (e.g., Local Path Provisioner, OpenEBS Mayastor, Rook-Ceph).
+Under the Kubernetes **Pod Security Admission (PSA)** `restricted` profile and modern hardened container runtimes:
+- **Must Run As Non-Root**: The pod specification sets `securityContext.runAsNonRoot: true` with a dedicated non-root UID (`USER 1031` or dynamic non-root UID). Containers cannot execute as UID 0.
+- **Arbitrary Dynamic UIDs**: Workload environments may assign dynamic arbitrary non-root UIDs. Files and directories required at runtime are configured with group 0 permissions (`chgrp -R 0` and `chmod -R g+rwX`) so any non-root UID can execute and access required assets.
+- **Drop All Capabilities**: The container specification explicitly drops all Linux capabilities (`capabilities.drop: ["ALL"]`).
+- **Disallow Privilege Escalation**: Pods enforce `securityContext.allowPrivilegeEscalation: false` to prevent child processes from acquiring additional privileges.
+- **RuntimeDefault Seccomp**: Workloads enforce `seccompProfile: { type: RuntimeDefault }` to restrict syscalls to safe defaults.
+- **Credential Protection**: Hardened with `automountServiceAccountToken: false` to avoid leaking Kubernetes API tokens to application containers unless explicitly needed.
+- **Unprivileged Ports**: Containers listen on non-privileged ports (> 1024).
+- **Standard Ingress & Storage**: Uses standard Kubernetes `networking.k8s.io/v1` `Ingress` and standard CSI PersistentVolumeClaims.
 
 ### Rootless Build Environment Compliance
 
@@ -76,26 +68,25 @@ This repository's `Dockerfile` is engineered for complete rootless build support
 
 ### Compliance Matrix
 
-| Security Dimension | OpenShift (`restricted-v2` SCC) | Talos Linux (Kubernetes PSS `restricted`) | Implementation in This Repo |
-|---|---|---|---|
-| **Build Execution** | Rootless builder compatible | Rootless builder compatible | Builds unprivileged via rootless Podman/Buildah (`mise run build`) |
-| **User ID** | Dynamic arbitrary UID (`MustRunAsRange`) | Non-root UID (`runAsNonRoot: true`) | `USER 1031` in Dockerfile + `runAsNonRoot: true` in Helm |
-| **Group Permissions** | Requires GID 0 (`root`) with `g+rwX` | Compatible with GID 0 / unprivileged groups | `chgrp -R 0` & `chmod -R g+rwX` on runtime paths |
-| **Capabilities** | Drops root caps; allows `NET_BIND_SERVICE` | Must drop `ALL` capabilities | `capabilities.drop: ["ALL"]` in Helm chart |
-| **Privilege Escalation** | Prohibited | `allowPrivilegeEscalation: false` | Configured in Helm `securityContext` |
-| **Seccomp Profile** | `RuntimeDefault` | `RuntimeDefault` or `Localhost` | `seccompProfile: { type: RuntimeDefault }` |
-| **Service Account Token** | Optional | Recommended disabled | `automountServiceAccountToken: false` |
-| **Port Binding** | Unprivileged (> 1024) | Unprivileged (> 1024) | Listens on port `8080` |
-| **Ingress Layer** | OpenShift Route (`route.openshift.io/v1`) | Kubernetes Ingress (`networking.k8s.io/v1`) | Configurable via `ingress.route: "true"` or `"false"` |
-| **Storage Layer** | OpenShift StorageClass | Talos CSI StorageClass | Standard PVC template with configurable `storageClass` |
-
+| Security Dimension | Restricted Standard Requirement | Implementation in This Repo |
+|---|---|---|
+| **Build Execution** | Unprivileged / rootless builder compatible | Builds unprivileged via rootless Podman/Buildah (`mise run build`) |
+| **User ID** | Non-root UID (`runAsNonRoot: true`) / dynamic UID | `USER 1031` in Dockerfile + `runAsNonRoot: true` in Helm |
+| **Group Permissions** | GID 0 (`root` group) with `g+rwX` | `chgrp -R 0` & `chmod -R g+rwX` on runtime paths |
+| **Capabilities** | Must drop `ALL` capabilities | `capabilities.drop: ["ALL"]` in Helm chart |
+| **Privilege Escalation** | Prohibited (`allowPrivilegeEscalation: false`) | Configured in Helm `securityContext` |
+| **Seccomp Profile** | `RuntimeDefault` or `Localhost` | `seccompProfile: { type: RuntimeDefault }` |
+| **Service Account Token** | Disabled unless required | `automountServiceAccountToken: false` |
+| **Port Binding** | Unprivileged (> 1024) | Listens on port `8080` |
+| **Ingress Layer** | Standard Kubernetes Ingress | Kubernetes Ingress (`networking.k8s.io/v1`) |
+| **Storage Layer** | Kubernetes CSI StorageClass | Standard PVC template with configurable `storageClass` |
 ---
 
 ## Local Environment & Podman Setup
 
-To ensure containerized applications and Helm charts tested locally run cleanly when deployed to OpenShift or Talos Linux, this repository is designed to be used alongside the Podman configuration in [joeckr/dotfiles](https://github.com/joeckr/dotfiles).
+To ensure containerized applications and Helm charts tested locally run cleanly when deployed to hardened Kubernetes environments, this repository is designed to be used alongside the Podman configuration in [joeckr/dotfiles](https://github.com/joeckr/dotfiles).
 
-The dotfiles repository provides a centralized [`containers.conf`](https://github.com/joeckr/dotfiles/blob/main/containers/containers.conf) (deployed to `~/.config/containers/containers.conf`) that configures Podman to simulate OpenShift and Talos Linux runtime restrictions:
+The dotfiles repository provides a centralized [`containers.conf`](https://github.com/joeckr/dotfiles/blob/main/containers/containers.conf) (deployed to `~/.config/containers/containers.conf`) that configures Podman to enforce rootless and hardened container runtime restrictions in testing:
 
 | Security Rule | Podman Configuration | Description |
 |---|---|---|
@@ -121,7 +112,7 @@ This repository defines a 3-tier testing process to validate container security,
 
 ```
 ┌─────────────────────────┐     ┌─────────────────────────┐     ┌─────────────────────────┐
-│ Tier 1: Custom Test     │ ──> │ Tier 2: Podman Play     │ ──> │ Tier 3: Talos Cluster   │
+│ Tier 1: Custom Test     │ ──> │ Tier 2: Podman Play     │ ──> │ Tier 3: K8s Cluster     │
 │ Verify non-root & build │     │ Validate K8s manifests  │     │ Live Helm verification  │
 │ (compose.yml)           │     │ (podman play kube)      │     │ (helm install)          │
 └─────────────────────────┘     └─────────────────────────┘     └─────────────────────────┘
@@ -129,7 +120,7 @@ This repository defines a 3-tier testing process to validate container security,
 
 ### Tier 1: Custom Image Local Validation (`compose.yml`)
 
-The [`compose.yml`](compose.yml) configuration builds and runs the customized `Dockerfile` containing the adaptations required for OpenShift and Talos Linux:
+The [`compose.yml`](compose.yml) configuration builds and runs the customized `Dockerfile` containing the adaptations required for rootless, hardened container execution:
 
 ```sh
 # Build and start the compliant container
@@ -205,37 +196,36 @@ mise run play-d
 
 ---
 
-### Tier 3: Cluster Deployment & Testing on Talos Linux (`mise run helm-i`)
+### Tier 3: Cluster Deployment & Testing on Kubernetes (`mise run helm-i`)
 
-The final phase validates the workload on a live **Talos Linux** Kubernetes cluster. This tests real-world Pod Security Admission (PSA) enforcement, CSI storage provisioning, network policies, and Ingress routing.
+The final phase validates the workload on a live Kubernetes cluster. This tests real-world Pod Security Admission (PSA) enforcement, CSI storage provisioning, network policies, and Ingress routing.
 
 #### 1. Cluster Prerequisites & Configuration
 
-Ensure your `kubectl` context points to your Talos cluster:
+Ensure your `kubectl` context points to your Kubernetes cluster:
 ```sh
 kubectl config current-context
-# Example: admin@my-talos-cluster
 ```
 
-Ensure the container image is accessible to your Talos nodes (e.g., built and pushed to GitHub Container Registry `ghcr.io` or your local registry):
+Ensure the container image is accessible to your cluster nodes (e.g., built and pushed to GitHub Container Registry `ghcr.io` or your local registry):
 ```sh
 # Build image locally with target tag
 mise run build
 ```
 
-Configure `chart/values.yaml` for Talos Linux:
-- **Ingress vs. Route**: Ensure `ingress.route` is set to `"false"` (default) so Helm generates standard Kubernetes `networking.k8s.io/v1` `Ingress` rather than an OpenShift Route:
+Configure `chart/values.yaml`:
+- **Ingress**: Configure standard Kubernetes `networking.k8s.io/v1` `Ingress`:
   ```yaml
   ingress:
+    enabled: true
     name: template-ingress
     host: "test.yourdomain.com"
-    route: "false"                 # "false" for Talos / vanilla Kubernetes; "true" for OpenShift
     className: "nginx"             # e.g., "nginx", "traefik", or "cilium"
     path: /
     pathType: "Prefix"
   ```
-- **StorageClass**: If your Talos cluster uses a specific CSI storage provisioner (e.g., `local-path`, `mayastor`, `ceph-block`), configure `pvc.storageClass` in `values.yaml` or leave it empty `""` to use the cluster's default StorageClass.
-- **Security Context & fsGroup**: Under `app.podSecurityContext`, `fsGroup: 1031` ensures mounted volumes are writable by the container user in vanilla Kubernetes / Talos Linux. If deploying to OpenShift, remove or comment out `fsGroup` as OpenShift's SCC dynamically allocates fsGroups.
+- **StorageClass**: If your cluster uses a specific CSI storage provisioner (e.g., `local-path`, `mayastor`, `ceph-block`), configure `pvc.storageClass` in `values.yaml` or leave it empty `""` to use the cluster's default StorageClass.
+- **Security Context & fsGroup**: Under `app.podSecurityContext`, `fsGroup: 1031` ensures mounted volumes are writable by the non-root container user in hardened Kubernetes environments.
 
 #### 2. Linting & Template Validation
 
@@ -248,7 +238,7 @@ mise run helm-t
 cat rendered.yaml
 ```
 
-#### 3. Deploying to the Talos Cluster
+#### 3. Deploying to the Cluster
 
 Install the Helm chart release:
 ```sh
@@ -256,9 +246,9 @@ mise run helm-i
 # or: helm install test chart/
 ```
 
-#### 4. Verifying Talos PSS Compliance & Health
+#### 4. Verifying PSS Compliance & Health
 
-Check the pod status and verify that Talos Linux Pod Security Admission (PSA) allowed the pod to run:
+Check the pod status and verify that Kubernetes Pod Security Admission (PSA) allowed the pod to run:
 
 ```sh
 # Check pod deployment status
@@ -289,7 +279,7 @@ kubectl port-forward svc/template-service 8080:8080
 curl http://localhost:8080
 ```
 
-#### 5. Uninstalling from the Talos Cluster
+#### 5. Uninstalling from the Cluster
 
 When testing is complete, clean up the release:
 ```sh
@@ -320,7 +310,7 @@ ARG VERSION=1.31.5
 ...
 ```
 
-Ensure any writable directories maintain non-root and OpenShift arbitrary UID compatibility:
+Ensure any writable directories maintain non-root and arbitrary UID compatibility:
 ```dockerfile
 RUN chgrp -R 0 /app && \
     chmod -R g+rwX /app
@@ -352,10 +342,10 @@ with:
 ```
 
 ### 5. Update the Helm Chart
-Navigate to the `chart/` directory and update `Chart.yaml`, `values.yaml`, and the templates to reflect your application's specifics. Choose between Ingress (`ingress.route: "false"`) for Talos/vanilla Kubernetes or Route (`ingress.route: "true"`) for OpenShift.
+Navigate to the `chart/` directory and update `Chart.yaml`, `values.yaml`, and the templates to reflect your application's specifics. Configure standard Kubernetes Ingress in `values.yaml`.
 
 ### 6. Run the Test Suite
-Validate changes through the 3-tier process: `mise run compose` (local container validation), `mise run play` (manifest test), and `mise run helm-i` (Talos cluster test).
+Validate changes through the 3-tier process: `mise run compose` (local container validation), `mise run play` (manifest test), and `mise run helm-i` (Kubernetes cluster test).
 
 ## Code Quality & Hooks
 
